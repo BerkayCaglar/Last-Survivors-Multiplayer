@@ -40,6 +40,32 @@ public class NetworkMovementComponent : NetworkBehaviour
             // Teleport the player to the server position
             TeleportPlayer(serverState);
             // Replay the inputs that happened after the server state
+            IEnumerable<InputState> inputs = InputStates.Where(inputState => inputState.Tick > serverState.Tick);
+            inputs = from input in inputs
+                     orderby input.Tick ascending
+                     select input;
+            foreach (InputState input in inputs)
+            {
+                float speed = GetComponent<PlayerManager>()._speed;
+                MovePlayer(input.movementInput, speed);
+                LookAtMouse(input.lookInput);
+
+                TransformState newTransformState = new TransformState()
+                {
+                    Tick = input.Tick,
+                    Position = transform.position,
+                    Rotation = transform.rotation,
+                    HasStartedMoving = true
+                };
+                for (int i = 0; i < TransformStates.Length; i++)
+                {
+                    if (TransformStates[i].Tick == newTransformState.Tick)
+                    {
+                        TransformStates[i] = newTransformState;
+                        break;
+                    }
+                }
+            }
         }
     }
 

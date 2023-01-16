@@ -13,16 +13,18 @@ public class PlayerManager : ServerRPC
     private float stamina = 100;
     private int respawnTime = 5;
     private float speed = 3f;
+    public float _speed { get { return speed; } private set { speed = value; } }
     public bool respawnInProgress;
-    private void Start() {
+    private void Start()
+    {
         animationController = GetComponent<AnimationController>();
         attackManager = GetComponent<AttackManager>();
     }
     private void Update()
     {
-        if(health > 0 && !respawnInProgress)
+        if (health > 0 && !respawnInProgress)
         {
-            if(IsOwner)
+            if (IsOwner)
             {
                 CameraFollow.Instance.FollowPlayer(gameObject);
                 MinimapController.Instance.FollowPlayer(gameObject);
@@ -31,44 +33,44 @@ public class PlayerManager : ServerRPC
 
             Vector3 mousePosition = Input.mousePosition;
             ray = Camera.main.ScreenPointToRay(mousePosition);
-            if(IsLocalPlayer && IsClient)
+            if (IsLocalPlayer && IsClient)
             {
-                if(Input.GetKey(KeyCode.LeftShift) && stamina > 0)
+                if (Input.GetKey(KeyCode.LeftShift) && stamina > 0)
                 {
                     speed = 6f;
-                    if(move != Vector3.zero)
-                    {     
+                    if (move != Vector3.zero)
+                    {
                         UIManager.Instance.ShowStaminaEnvironment(true);
                         stamina -= 0.2f;
                         UIManager.Instance.UpdateStamina(stamina);
                     }
-                    if(stamina <= 0)
+                    if (stamina <= 0)
                     {
                         speed = 3f;
                         animationController.ChangePlayerMovementRunOrWalkInAnimator();
                     }
                 }
-                if(Input.GetKeyDown(KeyCode.LeftShift))
+                if (Input.GetKeyDown(KeyCode.LeftShift))
                 {
-                    if(stamina > 0)
+                    if (stamina > 0)
                     {
                         animationController.ChangePlayerMovementRunOrWalkInAnimator();
                     }
                 }
-                if(Input.GetKeyUp(KeyCode.LeftShift))
+                if (Input.GetKeyUp(KeyCode.LeftShift))
                 {
                     speed = 3f;
-                    if(stamina > 0)
+                    if (stamina > 0)
                     {
                         animationController.ChangePlayerMovementRunOrWalkInAnimator();
                     }
                 }
 
-                if(!Input.GetKey(KeyCode.LeftShift) && stamina < 100)
+                if (!Input.GetKey(KeyCode.LeftShift) && stamina < 100)
                 {
                     UpdateStaminaBarForAWhile();
                 }
-                playerMovement.ProcessLocalPlayerMovement(move,ray,speed);
+                playerMovement.ProcessLocalPlayerMovement(move, ray, speed);
             }
             else
             {
@@ -77,7 +79,7 @@ public class PlayerManager : ServerRPC
         }
         else
         {
-            if(IsOwner && !respawnInProgress)
+            if (IsOwner && !respawnInProgress)
             {
                 respawnInProgress = true;
                 PrepareToRespawn();
@@ -91,13 +93,13 @@ public class PlayerManager : ServerRPC
         UIManager.Instance.ShowHealthEnvironment(false);
         UIManager.Instance.ShowMiniMap(false);
         ReSpawnOrDespawnGameObjectServerRpc(this, false);
-        InvokeRepeating("RespawnTimer",0f,1f);
+        InvokeRepeating("RespawnTimer", 0f, 1f);
     }
     private void RespawnTimer()
     {
-        if(respawnTime > 0)
+        if (respawnTime > 0)
         {
-            respawnTime --;
+            respawnTime--;
             UIManager.Instance.UpdateRespawnTimer(respawnTime);
         }
         else
@@ -121,16 +123,16 @@ public class PlayerManager : ServerRPC
         UIManager.Instance.ShowStaminaEnvironment(false);
         UIManager.Instance.UpdateStamina(stamina);
         ReSpawnOrDespawnGameObjectServerRpc(this, true);
-        
+
         respawnInProgress = false;
         //attackManager.SetDefaultAmmoToAllGuns();
-        
+
         //transform.position = new Vector3(transform.position.x,0.5f,transform.position.z);
-        
+
     }
     public void TakenDamage(int damage)
     {
-        if(!IsOwner) return;
+        if (!IsOwner) return;
         health -= damage;
         UIManager.Instance.UpdateHealth(health);
     }
@@ -139,7 +141,7 @@ public class PlayerManager : ServerRPC
         stamina += 0.1f;
         UIManager.Instance.UpdateStamina(stamina);
 
-        if(stamina >= 100f)
+        if (stamina >= 100f)
         {
             UIManager.Instance.ShowStaminaEnvironment(false);
         }
