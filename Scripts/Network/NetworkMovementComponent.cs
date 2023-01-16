@@ -4,6 +4,7 @@ using UnityEngine;
 using Unity.Netcode;
 using Unity.VisualScripting;
 using System;
+using System.Linq;
 
 public class NetworkMovementComponent : NetworkBehaviour
 {
@@ -21,29 +22,60 @@ public class NetworkMovementComponent : NetworkBehaviour
     public NetworkVariable<TransformState> ServerTransformState = new NetworkVariable<TransformState>();
     public TransformState PreviousTransformState;
 
-    private void OnEnable() {
+    private void OnEnable()
+    {
         ServerTransformState.OnValueChanged += OnServerStateChange;
     }
-    private void OnServerStateChange(TransformState previousValue, TransformState newValue)
+    private void OnServerStateChange(TransformState previousValue, TransformState serverState)
     {
-        PreviousTransformState = previousValue;
+        if (!IsLocalPlayer) return;
+        if (PreviousTransformState == null)
+        {
+            PreviousTransformState = serverState;
+        }
+        TransformState calculatedState = TransformStates.First(localState => localState.Tick == serverState.Tick);
+        if (calculatedState.Position != serverState.Position)
+        {
+            Debug.Log("Teleporting player to server position");
+            // Teleport the player to the server position
+            TeleportPlayer(serverState);
+            // Replay the inputs that happened after the server state
+        }
     }
-    public void ProcessLocalPlayerMovement(Vector3 movementInput,Ray ray,float speed)
+
+    private void TeleportPlayer(TransformState state)
+    {
+        CharacterController.enabled = false;
+        transform.position = state.Position;
+        transform.rotation = state.Rotation;
+        CharacterController.enabled = true;
+
+        for (int i = 0; i < TransformStates.Length; i++)
+        {
+            if (TransformStates[i].Tick == state.Tick)
+            {
+                TransformStates[i] = state;
+                break;
+            }
+        }
+    }
+
+    public void ProcessLocalPlayerMovement(Vector3 movementInput, Ray ray, float speed)
     {
         TickDeltaTime += Time.deltaTime;
-        if(TickDeltaTime > TickRate)
+        if (TickDeltaTime > TickRate)
         {
             int bufferIndex = Tick % BUFFER_SIZE;
 
-            if(!IsServer)
+            if (!IsServer)
             {
                 MovePlayerServerRpc(Tick, movementInput, ray, speed);
-                MovePlayer(movementInput,speed);
+                MovePlayer(movementInput, speed);
                 LookAtMouse(ray);
             }
             else
             {
-                MovePlayer(movementInput,speed);
+                MovePlayer(movementInput, speed);
                 LookAtMouse(ray);
 
                 TransformState state = new TransformState()
@@ -53,7 +85,7 @@ public class NetworkMovementComponent : NetworkBehaviour
                     Rotation = transform.rotation,
                     HasStartedMoving = true
                 };
-                
+
                 PreviousTransformState = ServerTransformState.Value;
                 ServerTransformState.Value = state;
             }
@@ -83,9 +115,9 @@ public class NetworkMovementComponent : NetworkBehaviour
     public void ProcessSimulatedMovement()
     {
         TickDeltaTime += Time.deltaTime;
-        if(TickDeltaTime > TickRate)
+        if (TickDeltaTime > TickRate)
         {
-            if(ServerTransformState.Value.HasStartedMoving)
+            if (ServerTransformState.Value.HasStartedMoving)
             {
                 transform.position = ServerTransformState.Value.Position;
                 transform.rotation = ServerTransformState.Value.Rotation;
@@ -95,24 +127,24 @@ public class NetworkMovementComponent : NetworkBehaviour
             Tick++;
         }
     }
-    private void MovePlayer(Vector3 movementInput,float speed)
+    private void MovePlayer(Vector3 movementInput, float speed)
     {
         CharacterController.Move(movementInput * TickRate * speed);
     }
     private void LookAtMouse(Ray ray)
-    {  
-        if (Physics.Raycast(ray, out RaycastHit raycastHit,999f,RaycastGround))
+    {
+        if (Physics.Raycast(ray, out RaycastHit raycastHit, 999f, RaycastGround))
         {
-            transform.LookAt(new Vector3(raycastHit.point.x,0f,raycastHit.point.z));
+            transform.LookAt(new Vector3(raycastHit.point.x, 0f, raycastHit.point.z));
         }
         Quaternion newRotation = new Quaternion(0f, transform.rotation.y, 0f, transform.rotation.w);
         transform.rotation = newRotation;
     }
 
     [ServerRpc]
-    public void MovePlayerServerRpc(int Tick, Vector3 movementInput, Ray ray,float speed)
+    public void MovePlayerServerRpc(int Tick, Vector3 movementInput, Ray ray, float speed)
     {
-        MovePlayer(movementInput,speed);
+        MovePlayer(movementInput, speed);
         LookAtMouse(ray);
 
         TransformState state = new TransformState()
